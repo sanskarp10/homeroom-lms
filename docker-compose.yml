@@ -1,0 +1,24 @@
+# Local infrastructure for development: MongoDB and Redis.
+#   docker compose up -d        start both in the background
+#   docker compose down         stop them (data is kept in named volumes)
+# The default server/.env already points at these ports.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  redis-data:
