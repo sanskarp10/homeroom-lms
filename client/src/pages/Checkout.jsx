@@ -62,7 +62,7 @@ export default function Checkout() {
           <button type="submit" className="btn-accent btn-lg w-full" disabled={payState.isLoading || order.status === 'paid'}>
             {payState.isLoading ? <Spinner /> : <LockKeyhole className="h-4 w-4" />}Pay {amount(order.amount, order.currency)}
           </button>
-          {course && <p className="text-center text-sm text-ink-faint">Changed your mind? <Link to={`/courses/${course.slug}`} className="link">Back to the course</Link></p>}
+          {course && <p className="text-center text-sm text-ink-faint">Changed your mind? <Link to={`/courses/${course.slug}?checkout=cancelled`} className="link">Back to the course</Link></p>}
         </form>
       </div>
 

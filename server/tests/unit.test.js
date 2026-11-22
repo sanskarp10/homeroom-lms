@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import mongoose from 'mongoose';
 import { gradeQuiz } from '../src/services/grading.js';
 import { splitAmount } from '../src/services/payments.js';
@@ -58,5 +60,12 @@ describe('helpers', () => {
     expect(estimateSeconds({ type: 'quiz', quiz: { questions: [1, 2, 3] } })).toBe(180);
     expect(estimateSeconds({ type: 'video', video: { status: 'ready', duration: 42 } })).toBe(42);
     expect(estimateSeconds({ type: 'video', video: { status: 'processing', duration: 42 } })).toBe(0);
+  });
+});
+
+describe('checkout cancellation link', () => {
+  it('keeps the cancellation flag when returning from the local test gateway', () => {
+    const source = fs.readFileSync(path.resolve('..', 'client', 'src', 'pages', 'Checkout.jsx'), 'utf8');
+    expect(source).toContain('to={`/courses/${course.slug}?checkout=cancelled`}');
   });
 });
