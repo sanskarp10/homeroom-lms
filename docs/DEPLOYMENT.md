@@ -2,7 +2,7 @@
 
 ## Current status
 
-**No deployment exists.** No Vercel, Render, Railway, Fly.io or Netlify project is configured, and no public URL has been verified. The repository has no GitHub remote, so nothing has been uploaded.
+**No deployment exists.** No Vercel, Render, Railway, Fly.io or Netlify project is configured, and no public URL has been verified. The source is published on GitHub at <https://github.com/sanskarp10/homeroom-lms>, but deployment has not been attempted.
 
 Do not claim the application is live until `/api/health` and the SPA are verified through the public URL.
 

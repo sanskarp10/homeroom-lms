@@ -13,7 +13,7 @@ An online course platform normally requires several disconnected tools: a catalo
 - Source is complete and locally verified.
 - Automated suite: **46/46 passing**. Production build: **passing**.
 - Browser QA: Phases A–G completed; see [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
-- GitHub: no remote configured; nothing has been uploaded.
+- GitHub: source and documentation are published at <https://github.com/sanskarp10/homeroom-lms>.
 - Deployment: none. Local fallbacks are active. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Quick start
