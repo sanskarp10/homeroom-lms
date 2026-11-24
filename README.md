@@ -1,23 +1,33 @@
 # Homeroom
 
-An online school: courses, video lessons, live classes, quizzes, certificates and instructor earnings.
-
-Built with the MERN stack, WebRTC, FFmpeg, BullMQ, AWS S3 + CloudFront and Redux Toolkit.
+Homeroom is a complete MERN online-school application: course catalogue, paid and free enrolment, video lessons, quizzes, certificates, instructor earnings, an admin area and browser-to-browser live classes.
 
 ![Home page with the live class timetable](docs/screenshots/home.jpg)
 
+## Problem statement
+
+An online course platform normally requires several disconnected tools: a catalog and checkout, a video host, a quiz engine, a live classroom and a certificate issuer. Homeroom combines these into one application with three roles, a single codebase and a zero-account local mode, while keeping production integrations behind configuration rather than source changes.
+
+## Submission status
+
+- Source is complete and locally verified.
+- Automated suite: **46/46 passing**. Production build: **passing**.
+- Browser QA: Phases A–G completed; see [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
+- GitHub: no remote configured; nothing has been uploaded.
+- Deployment: none. Local fallbacks are active. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Quick start
+
+Requires Node.js 20+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Needs Node.js 20+ and nothing else: the first start creates `server/.env`, starts an
-embedded database if no MongoDB is running, and loads demo content (12 courses with real HLS video, quizzes,
-sales history and a live class timetable).
+Open <http://localhost:5173>. The API runs on <http://localhost:4000>. On first start the setup script creates `server/.env` with a random JWT secret; if no MongoDB or Redis is reachable, the app uses an embedded database and an in-process video queue. Demo content is loaded automatically.
 
-Demo accounts, password `homeroom123` for all (the sign-in page has one-click buttons):
+Demo accounts (password `homeroom123`; one-click buttons on the sign-in page):
 
 | Role | Email |
 | --- | --- |
@@ -25,82 +35,113 @@ Demo accounts, password `homeroom123` for all (the sign-in page has one-click bu
 | Instructor | `maya@homeroom.test` |
 | Admin | `admin@homeroom.test` |
 
-**Going live** (MongoDB Atlas, Redis, S3 + CloudFront, Stripe, TURN, deployment): follow [`SETUP_GUIDE.md`](SETUP_GUIDE.md) step by step.
+## Technology stack
 
-## What it does
+- **Frontend:** React 18, Vite, Redux Toolkit + RTK Query, React Router, Tailwind CSS, hls.js, Socket.IO client.
+- **Backend:** Node.js, Express, Mongoose/MongoDB, Zod validation, JWT + bcrypt, Helmet, rate limiting, Socket.IO.
+- **Media:** FFmpeg with adaptive HLS (360p/720p/1080p, never upscaled). BullMQ/Redis in production, inline queue locally.
+- **Storage:** S3 + CloudFront in production, local `/media` disk in development.
+- **Payments:** Stripe Checkout test mode in production, built-in test gateway locally.
+- **Live classes:** WebRTC mesh with STUN; optional TURN.
 
-| Brief | Where it lives |
+## System architecture
+
+```mermaid
+flowchart LR
+  Browser[React + RTK Query] -->|REST JSON| API[Express API]
+  Browser -->|Socket.IO signalling| API
+  API --> DB[(MongoDB)]
+  API --> Queue[BullMQ or inline queue]
+  Queue --> Worker[FFmpeg worker]
+  Worker --> Media[(S3 or local disk)]
+  Media --> CDN[CloudFront or /media]
+  CDN --> Browser
+  API --> Pay[Stripe test gateway or built-in test gateway]
+```
+
+One Node process serves the API, WebSockets and, in production, the built React app. The worker runs in that process by default and can be split out with `npm run worker`. External drivers are selected in `server/src/config.js`; untouched `REPLACE_ME` values mean "not configured" and activate a local fallback.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full diagrams, data model and design decisions.
+
+## Roles
+
+| Role | What they can do |
 | --- | --- |
-| 1. Roles and schema | Students, instructors and admins with role-guarded routes. Mongoose models for users, courses (with sections), lessons, enrollments, quiz attempts, orders, live classes and certificates. `server/src/models` |
-| 2. Course creation and video upload | Course editor with sections, video, reading and quiz lessons, reordering, publish checklist. Uploads are queued in **BullMQ**; a worker runs **FFmpeg** to produce adaptive HLS (360p, 720p, 1080p, never upscaled) and a poster, with live progress in the editor. `server/src/services/transcoder.js`, `server/src/jobs/transcodeJob.js` |
-| 3. Delivery through CloudFront | Media goes to a private S3 bucket and is served from CloudFront. Locally the same code serves it from disk. `server/src/services/storage.js` |
-| 4. Quizzes and progress | Single, multiple and true/false questions, auto-graded on the server, explanations after marking, unlimited retakes. Video resumes where you stopped and completes at 90% watched. Per-course progress. `server/src/services/grading.js`, `server/src/routes/learn.js` |
-| 5. Live classes with chat | WebRTC mesh with camera, microphone, screen share, raise hand, host mute-all, persistent chat, a waiting room, and a public timetable. Signalling over Socket.IO. `server/src/realtime/rooms.js`, `client/src/hooks/useLiveRoom.js` |
-| 6. PDF certificates | Issued automatically when every lesson is complete. Generated with PDFKit, with a public verification page. `server/src/services/certificatePdf.js` |
-| 7. Revenue dashboard and payments | Stripe Checkout in test mode (with webhook), or a built-in test gateway when no Stripe key is set. Every sale is split into platform fee and instructor earnings; the dashboard charts earnings by day, by course and by sale. `server/src/routes/payments.js`, `server/src/routes/instructor.js` |
+| Student | Browse and buy courses, watch video, complete quizzes, track progress, join live classes, download certificates. |
+| Instructor | Create and publish courses, upload video, build quizzes, schedule live classes, view earnings and students. |
+| Admin | Platform totals, people and role management, course moderation, video pipeline and queue state. |
 
-Beyond the brief: an admin area (totals, people, course moderation, video pipeline state), free previews,
-zero-install local mode, a `doctor` command that checks every external service, optimistic UI updates,
-route-level code splitting, and a keyboard-accessible interface that works down to phone width.
+Role checks are enforced on every protected REST route and Socket.IO handshake; course ownership is checked separately from role.
 
-| | |
+## Feature map
+
+| Brief area | Implementation |
 | --- | --- |
-| ![Course player](docs/screenshots/player-video.jpg) | ![Instructor earnings](docs/screenshots/teach.jpg) |
-| ![Course page](docs/screenshots/course.jpg) | ![Course editor with quiz builder](docs/screenshots/editor.jpg) |
+| Roles and schema | Mongoose models in `server/src/models`; guarded routes in `server/src/routes`. |
+| Course creation and uploads | Course editor with sections, video/reading/quiz lessons, reordering and publish checklist. FFmpeg produces HLS and a poster. |
+| Media delivery | Private S3 + CloudFront in production; identical code path serves local disk in development. |
+| Quizzes and progress | Server-side grading, explanations, retakes, playback resume, 90% completion rule. |
+| Live classes | WebRTC mesh, waiting room, chat, raise hand, host mute-all, screen share, timetable. |
+| Certificates | PDFKit PDF generated on completion, public ID verification page. |
+| Payments and earnings | Stripe test Checkout with webhook, or built-in test gateway; 80/20 order split and dashboards. |
 
-## Commands
+## Installation and execution
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | API (port 4000) and web app (port 5173) with reload |
-| `npm run build` / `npm start` | Production: one server on port 4000 serves API and app |
-| `npm test` | 45 API and unit tests against a real database and real FFmpeg |
-| `npm run doctor` | Checks MongoDB, Redis, FFmpeg, S3, CloudFront, Stripe and TURN |
-| `npm run seed:reset` | Wipe and reload the demo content |
+| `npm run dev` | API + Vite with reload |
+| `npm run build` / `npm start` | Production build and single-server run on port 4000 |
+| `npm test` | Vitest + Supertest suite against isolated test DB and real FFmpeg |
+| `npm run doctor` | Dependency and configuration check |
+| `npm run seed:reset` | Reload demo content (destructive; not used during QA) |
 | `npm run worker` | Standalone video worker |
-| `npm run create-admin -- email password "Name"` | Create an admin |
-| `python3 scripts/e2e_smoke.py` | Optional browser test, including a two-browser WebRTC class (needs Playwright) |
+| `npm run create-admin -- email password "Name"` | Create or promote an admin |
 
-## Project layout
+## Environment configuration
 
+All server settings live in `server/.env`, copied from [`server/.env.example`](server/.env.example). `client/.env` is only needed for split hosting. The full variable reference and step-by-step production setup are in [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
+
+Never commit `.env` files. Placeholders count as "not set" and select local fallbacks.
+
+## API structure
+
+REST endpoints are grouped under `/api/auth`, `/api/courses`, `/api/manage`, `/api/learn`, `/api/payments`, `/api/instructor`, `/api/live`, `/api/certificates` and `/api/admin`. Authenticated requests use `Authorization: Bearer <token>`. Socket.IO connects with `auth: { token }` and emits `live:join`, `live:signal`, `live:state`, `live:chat`, `live:mute-all`, `live:lower-hand` and `live:leave`. Full details: [docs/API.md](docs/API.md).
+
+## Database design
+
+Core collections: `users`, `courses` (embedded sections), `lessons`, `enrollments`, `quizattempts`, `orders`, `liveclasses`, `livemessages` and `certificates`. Money is stored in integer cents; certificates snapshot names and titles. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Video processing and streaming
+
+Upload returns immediately; the worker probes the source, produces renditions at or below the source height and a poster, then writes status and progress to the lesson document. Keys are stored, not URLs, so the delivery domain can change without migration. The editor polls only while conversion is active.
+
+## WebRTC live classes
+
+The server authenticates sockets, checks enrollment and relays signalling, presence, chat and host actions; media never passes through it. The participant who joins later offers. Camera/screen changes use `replaceTrack()`, and Socket.IO reconnects rejoin the room. Mesh topology is comfortable up to about eight cameras; larger classes need an SFU.
+
+## Payments
+
+With `STRIPE_SECRET_KEY` set, buyers go to Stripe Checkout test mode and fulfilment is confirmed by both the success page and webhook. Without it, a clearly labelled built-in test gateway accepts Stripe's test card numbers. Every paid order stores gross amount, platform fee and instructor net; payouts to instructors are not implemented.
+
+## Testing
+
+```bash
+npm test          # 46 tests
+npm run doctor    # 5 PASS, 5 WARN locally, 0 FAIL
+npm run build     # production bundle
 ```
-homeroom/
-├── SETUP_GUIDE.md            step-by-step: run locally, then go live
-├── docker-compose.yml        MongoDB + Redis for local development
-├── Dockerfile                single image: API + built web app + FFmpeg
-├── docs/                     architecture, API reference, test results
-├── scripts/                  setup.mjs, e2e_smoke.py
-├── server/                   Express API, Socket.IO, BullMQ worker
-│   ├── .env.example          every setting, with placeholders
-│   ├── src/
-│   │   ├── index.js          API entry      worker.js  worker entry      doctor.js  health checks
-│   │   ├── config.js         reads .env; placeholders count as "not set"
-│   │   ├── models/           Mongoose schemas
-│   │   ├── routes/           auth, courses, manage, learn, payments, instructor, live, certificates, admin
-│   │   ├── services/         storage, transcoder, queue, payments, progress, grading, certificatePdf
-│   │   ├── jobs/             transcodeJob.js (the BullMQ processor)
-│   │   ├── realtime/         rooms.js (WebRTC signalling and chat)
-│   │   └── seed/             demo content
-│   └── tests/                vitest + supertest
-└── client/                   React 18 + Vite + Redux Toolkit + Tailwind
-    └── src/
-        ├── store/            auth and ui slices, RTK Query API layer
-        ├── pages/            catalog, course, player, checkout, live room, instructor, admin
-        ├── components/       video player, quiz, timetable, covers, charts
-        └── hooks/            useLiveRoom (WebRTC), useEnroll
-```
 
-## Documentation
+Browser QA covered authentication (A), student learning (B), instructor workflow (C), admin (D), payments (E), live classes (F) and media reliability (G). Results and evidence: [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) and [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
-- [`SETUP_GUIDE.md`](SETUP_GUIDE.md): local run and production setup, with every environment variable
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): diagrams, data model, design decisions, limits
-- [`docs/API.md`](docs/API.md): REST endpoints and Socket.IO events
-- [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md): test output and performance numbers
-- [`docs/PRESENTATION_OUTLINE.md`](docs/PRESENTATION_OUTLINE.md): a 10-minute talk track
+## Deployment
 
-## Known limits
+No live deployment exists yet. The recommended academic-submission path and the exact credentials required are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Do not treat local fallbacks as production integrations.
 
-- Live classes use a peer-to-peer mesh, comfortable to about 8 cameras. Larger classes need an SFU such as LiveKit (see the architecture notes).
-- Live room state is in memory, so run one API instance (or add the Socket.IO Redis adapter).
-- Instructor earnings are recorded and reported; paying them out to bank accounts (Stripe Connect) is not implemented.
-- CloudFront URLs are unguessable but not signed. Signed cookies are the next step for paid content.
+## Known limitations
+
+- Live rooms are held in memory: one API instance unless a Socket.IO Redis adapter is added.
+- WebRTC mesh scales to roughly eight cameras; TURN is not configured locally.
+- CloudFront URLs are unguessable but unsigned; signed cookies are the next step for paid media.
+- JWTs are stored in `localStorage` and have no server-side revocation list; disabling an account takes effect on the next request.
+- Instructor earnings are recorded and reported, not paid out.
+- Physical camera/microphone and device switching were not verified in headless QA.
