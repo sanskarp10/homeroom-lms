@@ -4,7 +4,7 @@
 
 | Check | Result |
 | --- | --- |
-| `npm test` | **46/46 passing** (2 files: 36 API + 10 unit) |
+| `npm test` | **49/49 passing** (2 files: 36 API + 13 unit) |
 | `npm run build` | **PASS** — Vite production bundle |
 | `npm run doctor` | **OK** — 5 PASS, 5 WARN, 0 FAIL; warnings are the documented local fallbacks |
 | Latest commit | `ea55b93 fix: show cancellation notice when leaving local checkout` |

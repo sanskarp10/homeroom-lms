@@ -7,6 +7,7 @@ import { splitAmount } from '../src/services/payments.js';
 import { pickRenditions } from '../src/services/transcoder.js';
 import { slugify, escapeRegex } from '../src/utils/http.js';
 import { estimateSeconds } from '../src/services/courseStats.js';
+import { productionConfigProblems } from '../src/config.js';
 
 const q = (type, options, correct, points = 1) => ({ _id: new mongoose.Types.ObjectId(), type, options, correct, points });
 
@@ -67,5 +68,53 @@ describe('checkout cancellation link', () => {
   it('keeps the cancellation flag when returning from the local test gateway', () => {
     const source = fs.readFileSync(path.resolve('..', 'client', 'src', 'pages', 'Checkout.jsx'), 'utf8');
     expect(source).toContain('to={`/courses/${course.slug}?checkout=cancelled`}');
+  });
+});
+
+describe('production configuration guard', () => {
+  const safe = {
+    isProd: true,
+    jwtSecret: 'stable-secret',
+    mongoMemoryFallback: false,
+    autoSeed: false,
+    queueDriver: 'bullmq',
+    storageDriver: 's3',
+    s3Ready: true,
+    stripeSecretKey: 'sk_test_' + 'FAKE_EXAMPLE_KEY',
+    stripeWebhookSecret: 'whsec_' + 'FAKE_EXAMPLE_SECRET',
+    clientUrl: 'https://app.example.com',
+    publicUrl: 'https://app.example.com',
+  };
+
+  it('accepts a safe production configuration', () => {
+    expect(productionConfigProblems(safe)).toEqual([]);
+  });
+
+  it('rejects local fallbacks, live keys and localhost URLs', () => {
+    const problems = productionConfigProblems({
+      ...safe,
+      jwtSecret: '',
+      mongoMemoryFallback: true,
+      autoSeed: true,
+      queueDriver: 'inline',
+      storageDriver: 'local',
+      s3Ready: false,
+      stripeSecretKey: 'sk_live_' + 'FAKE_EXAMPLE_KEY',
+      stripeWebhookSecret: '',
+      clientUrl: 'http://localhost:5173',
+      publicUrl: 'http://127.0.0.1:4000',
+    });
+    expect(problems.length).toBeGreaterThanOrEqual(8);
+    expect(problems.join(' ')).toMatch(/JWT_SECRET/);
+    expect(problems.join(' ')).toMatch(/MONGO_MEMORY_FALLBACK/);
+    expect(problems.join(' ')).toMatch(/QUEUE_DRIVER/);
+    expect(problems.join(' ')).toMatch(/S3/);
+    expect(problems.join(' ')).toMatch(/test-mode/);
+    expect(problems.join(' ')).toMatch(/WEBHOOK/);
+    expect(problems.join(' ')).toMatch(/localhost/);
+  });
+
+  it('does not apply production rules in development', () => {
+    expect(productionConfigProblems({ ...safe, isProd: false, stripeSecretKey: '', storageDriver: 'local' })).toEqual([]);
   });
 });

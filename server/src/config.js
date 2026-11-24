@@ -82,10 +82,32 @@ export const config = {
   turn: { url: env('TURN_URL'), username: env('TURN_USERNAME'), credential: env('TURN_CREDENTIAL') },
 };
 
-export function assertConfig() {
+export function productionConfigProblems(cfg) {
+  if (!cfg.isProd) return [];
   const problems = [];
-  if (!config.jwtSecret) problems.push('JWT_SECRET is required in production.');
-  if (config.storageDriver === 's3' && !config.s3Ready) {
+  if (!cfg.jwtSecret) problems.push('JWT_SECRET is required in production.');
+  if (cfg.mongoMemoryFallback) problems.push('MONGO_MEMORY_FALLBACK must be false in production.');
+  if (cfg.autoSeed) problems.push('AUTO_SEED must be false in production.');
+  if (cfg.queueDriver === 'inline') problems.push('QUEUE_DRIVER=inline is not allowed in production; use bullmq.');
+  if (cfg.storageDriver === 'local' || !cfg.s3Ready) {
+    problems.push('Production media storage must be S3 + CloudFront (STORAGE_DRIVER=s3 with real AWS settings).');
+  }
+  if (!cfg.stripeSecretKey) problems.push('STRIPE_SECRET_KEY is required in production.');
+  else if (!cfg.stripeSecretKey.startsWith('sk_test_')) {
+    problems.push('STRIPE_SECRET_KEY must be a test-mode key (sk_test_...); live keys are not permitted.');
+  }
+  if (!cfg.stripeWebhookSecret) problems.push('STRIPE_WEBHOOK_SECRET is required in production.');
+  const urls = `${cfg.clientUrl}${cfg.publicUrl}`;
+  if (/localhost|127\.0\.0\.1/.test(urls)) problems.push('CLIENT_URL and PUBLIC_URL must not point at localhost in production.');
+  else if (!/^https:\/\//.test(cfg.clientUrl) || !/^https:\/\//.test(cfg.publicUrl)) {
+    problems.push('CLIENT_URL and PUBLIC_URL must use HTTPS in production.');
+  }
+  return problems;
+}
+
+export function assertConfig() {
+  const problems = productionConfigProblems(config);
+  if (config.storageDriver === 's3' && !config.s3Ready && !config.isProd) {
     problems.push('STORAGE_DRIVER=s3 needs AWS_REGION, S3_BUCKET and CLOUDFRONT_DOMAIN.');
   }
   if (problems.length) {

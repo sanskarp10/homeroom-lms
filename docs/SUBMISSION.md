@@ -11,7 +11,7 @@
 | 5:15–6:45 | Live class | Two browsers: schedule, waiting room, start, join, chat, raise hand, mute-all, end | WebRTC mesh; server only signs and relays; Socket.IO auth and room checks. |
 | 6:45–7:45 | Admin | Admin dashboard, People search, role/status controls, course moderation | Role protection, platform analytics, ownership checks. |
 | 7:45–8:45 | Architecture | `docs/ARCHITECTURE.md` diagram and data model | Driver fallbacks, lesson document as pipeline source of truth, keys not URLs. |
-| 8:45–9:30 | Testing | `docs/TEST_RESULTS.md` and selected screenshots | 46/46 tests, browser phases A–G, known blocks honestly stated. |
+| 8:45–9:30 | Testing | `docs/TEST_RESULTS.md` and selected screenshots | 49/49 tests, browser phases A–G, known blocks honestly stated. |
 | 9:30–10:00 | Limits and next steps | Known limits slide | Single-instance rooms, unsigned CDN URLs, mesh scaling, no payouts. |
 
 ## Recommended demonstration sequence

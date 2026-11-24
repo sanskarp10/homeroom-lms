@@ -11,7 +11,7 @@ An online course platform normally requires several disconnected tools: a catalo
 ## Submission status
 
 - Source is complete and locally verified.
-- Automated suite: **46/46 passing**. Production build: **passing**.
+- Automated suite: **49/49 passing**. Production build: **passing**.
 - Browser QA: Phases A–G completed; see [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
 - GitHub: source and documentation are published at <https://github.com/sanskarp10/homeroom-lms>.
 - Deployment: none. Local fallbacks are active. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
@@ -126,7 +126,7 @@ With `STRIPE_SECRET_KEY` set, buyers go to Stripe Checkout test mode and fulfilm
 ## Testing
 
 ```bash
-npm test          # 46 tests
+npm test          # 49 tests
 npm run doctor    # 5 PASS, 5 WARN locally, 0 FAIL
 npm run build     # production bundle
 ```
